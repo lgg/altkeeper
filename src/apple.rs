@@ -390,7 +390,17 @@ pub async fn open_session(
                 )
             );
         }
-        println!("{}", crate::tr!("(d = invia ai dispositivi, r = reinvia, p<id> = SMS al numero <id>)", "(d = send to devices, r = resend, p<id> = SMS to number <id>)"));
+        if params.unknown {
+            println!("{}", crate::tr!(
+                "(d = invia ai dispositivi, p<id> = SMS al numero <id>)",
+                "(d = send to devices, p<id> = SMS to number <id>)"
+            ));
+        } else {
+            println!("{}", crate::tr!(
+                "(d = invia ai dispositivi, r = reinvia, p<id> = SMS al numero <id>)",
+                "(d = send to devices, r = resend, p<id> = SMS to number <id>)"
+            ));
+        }
         for n in params
             .numbers
             .iter()
@@ -413,7 +423,17 @@ pub async fn open_session(
             if let Some(response) = parse_2fa_input(&code, params.unknown) {
                 return Ok(response);
             }
-            println!("{}", crate::tr!("Inserisci un codice di 6 cifre valido oppure d, r o p<id>.", "Enter a valid six-digit code or d, r, p<id>."));
+            println!("{}", if params.unknown {
+                crate::tr!(
+                    "Inserisci un codice di 6 cifre valido oppure d o p<id>.",
+                    "Enter a valid six-digit code, d or p<id>."
+                )
+            } else {
+                crate::tr!(
+                    "Inserisci un codice di 6 cifre valido oppure d, r o p<id>.",
+                    "Enter a valid six-digit code, d, r or p<id>."
+                )
+            });
         }
     };
 
@@ -520,7 +540,7 @@ pub async fn sign_ipa(
 ) -> Result<SignedApp, String> {
     let filename = ipa
         .file_name()
-        .ok_or("nome del file IPA mancante")?
+        .ok_or(crate::tr!("nome del file IPA mancante", "IPA filename is missing"))?
         .to_string_lossy();
     let cleanup_dir = std::env::temp_dir().join(format!("{filename}_extracted"));
     let storage_path = Path::new(STATE_DIR).join("sideload");
@@ -550,10 +570,9 @@ pub async fn sign_ipa(
             let _ = std::fs::remove_dir_all(&cleanup_dir);
             let detail = format!("{e:?}");
             if is_max_certs_error(&detail) {
-                format!(
-                    "firma dell'app non riuscita: l'Apple ID ha già un certificato (AltStore/SideStore). \
-                     Per sostituirlo imposta ALTKEEPER_REVOKE_CERTS=1 e riprova; le altre app \
-                     vanno poi rinnovate con un Refresh."
+                crate::tr!(
+                    "firma dell'app non riuscita: l'Apple ID ha già un certificato (AltStore/SideStore). Per sostituirlo imposta ALTKEEPER_REVOKE_CERTS=1 e riprova; le altre app vanno poi rinnovate con un Refresh.".to_string(),
+                    "App signing failed: this Apple ID already has a certificate (AltStore/SideStore). To replace it, set ALTKEEPER_REVOKE_CERTS=1 and retry; other apps will then need refreshing.".to_string()
                 )
             } else {
                 crate::tr!(format!("firma dell'app non riuscita: {e}"), format!("App signing failed: {e}"))
