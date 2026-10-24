@@ -38,6 +38,15 @@ use phone::dbg;
 
 const PAIRING_FILE: &str = "rp-pairing.plist";
 
+/// Yes is opt-in: empty or unrecognized responses must never save a password.
+fn save_password_confirmed(answer: &str) -> bool {
+    matches!(
+        answer.trim().to_lowercase().as_str(),
+        "s" | "si" | "sì" | "y" | "yes"
+    )
+}
+
+
 const USAGE: &str = "uso: altkeeper <phone|pair-usb|login|apps|renew|profile-remove|\
                      profile-restore|serve|altserver|version> [opzioni]";
 const USAGE_EN: &str = "usage: altkeeper <phone|pair-usb|login|apps|renew|profile-remove|\
@@ -184,7 +193,7 @@ async fn cmd_login(apple_id: Option<String>) -> Result<(), String> {
         Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => String::new(),
         Err(e) => return Err(dbg(e)),
     };
-    let save = matches!(answer.trim().to_lowercase().as_str(), "s" | "si" | "sì" | "y");
+    let save = save_password_confirmed(&answer);
 
     apple::save_account(
         Path::new("."),
@@ -476,5 +485,24 @@ async fn main() -> Result<(), String> {
             cmd_profile_restore(phone_addr(opt("--phone"))?, args.first().cloned()).await
         }
         _ => Err(crate::tr!(USAGE, USAGE_EN).into()),
+    }
+}
+
+#[cfg(test)]
+mod cli_tests {
+    use super::save_password_confirmed;
+
+    #[test]
+    fn confirmation_accepts_italian_and_english_yes() {
+        for yes in ["s", "S", "si", "SÌ", "y", "Y", "yes", "YES", " yes\\r\\n"] {
+            assert!(save_password_confirmed(yes), "{yes:?}");
+        }
+    }
+
+    #[test]
+    fn confirmation_never_saves_on_negative_or_missing_input() {
+        for no in ["", "\\r\\n", " ", "n", "N", "no", "NO", "unknown"] {
+            assert!(!save_password_confirmed(no), "{no:?}");
+        }
     }
 }
