@@ -63,10 +63,10 @@ pub struct Account {
 
 pub fn load_account(dir: &Path) -> Result<Account, String> {
     let raw = std::fs::read_to_string(dir.join(ACCOUNT_FILE))
-        .map_err(|_| "manca account.json: esegui prima `altkeeper login <apple-id>`".to_string())?;
+        .map_err(|_| crate::tr!("manca account.json: esegui prima `altkeeper login <apple-id>`", "account.json is missing: run `altkeeper login <apple-id>` first").to_string())?;
     let acc: Account = serde_json::from_str(&raw).map_err(dbg)?;
     if acc.password.is_empty() {
-        return Err("password non salvata: rifai `altkeeper login` e scegli di salvarla".into());
+        return Err(crate::tr!("password non salvata: rifai `altkeeper login` e scegli di salvarla", "password was not saved: rerun `altkeeper login` and choose to save it").into());
     }
     Ok(acc)
 }
@@ -116,7 +116,7 @@ pub fn anisette_url(value: Option<&str>) -> Result<Option<String>, String> {
         Some(u) if u.starts_with("https://") || u.starts_with("http://") => {
             Ok(Some(u.trim_end_matches('/').to_string()))
         }
-        Some(_) => Err("ALTKEEPER_ANISETTE_URL deve iniziare con http:// o https://".into()),
+        Some(_) => Err(crate::tr!("ALTKEEPER_ANISETTE_URL deve iniziare con http:// o https://", "ALTKEEPER_ANISETTE_URL must start with http:// or https://").into()),
     }
 }
 
@@ -189,10 +189,10 @@ pub async fn anisette_for_altstore(dir: &Path) -> Result<serde_json::Value, Stri
     match anisette_for_altstore_once(dir).await {
         Err(e) if needs_reprovision(&e) => {
             if retire_anisette_state(dir)? {
-                println!(
-                    "[anisette] il server non riconosce l'identità salvata ({e}); \
-                     la metto da parte in state/anisette_state.stale e ne creo una nuova"
-                );
+                println!("{}", crate::tr!(
+                    format!("[anisette] il server non riconosce l'identità salvata ({e}); la metto da parte in state/anisette_state.stale e ne creo una nuova"),
+                    format!("[anisette] server did not recognize the saved identity ({e}); moved it to state/anisette_state.stale and provisioning a new one")
+                ));
                 anisette_for_altstore_once(dir).await
             } else {
                 Err(e)
@@ -345,11 +345,11 @@ pub async fn open_session_web(
         .anisette_provider(provider)
         .login(password, get_2fa_code)
         .await
-        .map_err(|e| format!("login Apple ID non riuscito: {e}"))?;
+        .map_err(|e| crate::tr!(format!("login Apple ID non riuscito: {e}"), format!("Apple ID sign-in failed: {e}")))?;
 
     DeveloperSession::from_account(&mut account)
         .await
-        .map_err(|e| format!("sessione sviluppatore non riuscita: {e}"))
+        .map_err(|e| crate::tr!(format!("sessione sviluppatore non riuscita: {e}"), format!("Developer session failed: {e}")))
 }
 
 /// Login e sessione verso i servizi sviluppatori di Apple.
@@ -366,23 +366,31 @@ pub async fn open_session(
             return Ok(TwoFactorCallbackResponse::SubmitCode(String::new()));
         }
         if params.unknown {
-            println!("L'ultimo metodo 2FA non ha funzionato, prova un altro.");
+            println!("{}", crate::tr!("L'ultimo metodo 2FA non ha funzionato, prova un altro.", "The previous 2FA method did not work; try another one."));
         } else {
             println!(
-                "Inserisci il codice a 6 cifre inviato a {}:",
-                if params.sms {
+                "{}",
+                crate::tr!(
+                    format!("Inserisci il codice a 6 cifre inviato a {}:", if params.sms {
                     params
                         .numbers
                         .iter()
                         .find(|n| Some(n.id) == params.selected_number_id)
                         .map(|n| n.number_with_dial_code.clone())
-                        .unwrap_or_else(|| "il tuo telefono".to_string())
+                        .unwrap_or_else(|| crate::tr!("il tuo telefono", "your phone").to_string())
                 } else {
-                    "i tuoi dispositivi".to_string()
-                }
+                    crate::tr!("i tuoi dispositivi", "your devices").to_string()
+                }),
+                    format!("Enter the six-digit code sent to {}:", if params.sms {
+                    params.numbers.iter()
+                        .find(|n| Some(n.id) == params.selected_number_id)
+                        .map(|n| n.number_with_dial_code.clone())
+                        .unwrap_or_else(|| crate::tr!("il tuo telefono", "your phone").to_string())
+                    } else { "your devices".to_string() })
+                )
             );
         }
-        println!("(d = invia ai dispositivi, r = reinvia, p<id> = SMS al numero <id>)");
+        println!("{}", crate::tr!("(d = invia ai dispositivi, r = reinvia, p<id> = SMS al numero <id>)", "(d = send to devices, r = resend, p<id> = SMS to number <id>)"));
         for n in params
             .numbers
             .iter()
@@ -394,10 +402,10 @@ pub async fn open_session(
         loop {
             // Non usare stdin().read_line(): in PowerShell lo stdin del processo
             // può essere una pipe a EOF nonostante la console funzioni.
-            let code = match crate::terminal::prompt_line("Codice 2FA o comando: ") {
+            let code = match crate::terminal::prompt_line(crate::tr!("Codice 2FA o comando: ", "2FA code or command: ")) {
                 Ok(code) => code,
                 Err(e) => {
-                    eprintln!("Impossibile leggere il codice 2FA dal terminale: {e}");
+                    eprintln!("{}", crate::tr!(format!("Impossibile leggere il codice 2FA dal terminale: {e}"), format!("Cannot read 2FA code from the terminal: {e}")));
                     return Ok(TwoFactorCallbackResponse::Abort);
                 }
             };
@@ -405,7 +413,7 @@ pub async fn open_session(
             if let Some(response) = parse_2fa_input(&code, params.unknown) {
                 return Ok(response);
             }
-            println!("Inserisci un codice di 6 cifre valido oppure d, r o p<id>.");
+            println!("{}", crate::tr!("Inserisci un codice di 6 cifre valido oppure d, r o p<id>.", "Enter a valid six-digit code or d, r, p<id>."));
         }
     };
 
@@ -413,11 +421,11 @@ pub async fn open_session(
         .anisette_provider(provider)
         .login(password, get_2fa_code)
         .await
-        .map_err(|e| format!("login Apple ID non riuscito: {e}"))?;
+        .map_err(|e| crate::tr!(format!("login Apple ID non riuscito: {e}"), format!("Apple ID sign-in failed: {e}")))?;
 
     DeveloperSession::from_account(&mut account)
         .await
-        .map_err(|e| format!("sessione sviluppatore non riuscita: {e}"))
+        .map_err(|e| crate::tr!(format!("sessione sviluppatore non riuscita: {e}"), format!("Developer session failed: {e}")))
 }
 
 /// Sceglie il team: quello indicato, l'unico disponibile, o (in interattivo) chiede.
@@ -428,32 +436,32 @@ pub async fn pick_team(
 ) -> Result<DeveloperTeam, String> {
     let teams = sess.list_teams().await.map_err(|e| e.to_string())?;
     if teams.is_empty() {
-        return Err("nessun team sviluppatore su questo Apple ID".into());
+        return Err(crate::tr!("nessun team sviluppatore su questo Apple ID", "there are no developer teams for this Apple ID").into());
     }
     if let Some(id) = wanted {
         return teams
             .into_iter()
             .find(|t| t.team_id == id)
-            .ok_or_else(|| format!("il team {id} non esiste su questo Apple ID"));
+            .ok_or_else(|| crate::tr!(format!("il team {id} non esiste su questo Apple ID"), format!("Team {id} does not exist for this Apple ID")));
     }
     if teams.len() == 1 || !interactive {
         return Ok(teams.into_iter().next().unwrap());
     }
-    println!("Team disponibili:");
+    println!("{}", crate::tr!("Team disponibili:", "Available teams:"));
     for (i, t) in teams.iter().enumerate() {
         println!(
             "  {}: {} ({})",
             i + 1,
-            t.name.as_deref().unwrap_or("<senza nome>"),
+            t.name.as_deref().unwrap_or(crate::tr!("<senza nome>", "<unnamed>")),
             t.team_id
         );
     }
-    let s = crate::terminal::prompt_line("Scegli il numero: ").map_err(dbg)?;
-    let n: usize = s.trim().parse().map_err(|_| "scelta non valida".to_string())?;
+    let s = crate::terminal::prompt_line(crate::tr!("Scegli il numero: ", "Choose a number: ")).map_err(dbg)?;
+    let n: usize = s.trim().parse().map_err(|_| crate::tr!("scelta non valida", "invalid selection").to_string())?;
     teams
         .into_iter()
         .nth(n.wrapping_sub(1))
-        .ok_or_else(|| "scelta non valida".to_string())
+        .ok_or_else(|| crate::tr!("scelta non valida", "invalid selection").to_string())
 }
 
 pub async fn app_ids(
@@ -521,7 +529,7 @@ pub async fn sign_ipa(
 
     sess.ensure_device_registered(&team, device_name, udid, DeveloperDeviceType::Ios)
         .await
-        .map_err(|e| format!("registrazione iPhone non riuscita: {e}"))?;
+        .map_err(|e| crate::tr!(format!("registrazione iPhone non riuscita: {e}"), format!("iPhone registration failed: {e}")))?;
 
     let mut sideloader = SideloaderBuilder::new(sess, account.apple_id.clone())
         .storage(Box::new(FsStorage::new(storage_path)))
@@ -548,7 +556,7 @@ pub async fn sign_ipa(
                      vanno poi rinnovate con un Refresh."
                 )
             } else {
-                format!("firma dell'app non riuscita: {e}")
+                crate::tr!(format!("firma dell'app non riuscita: {e}"), format!("App signing failed: {e}"))
             }
         })?;
     Ok(SignedApp {
