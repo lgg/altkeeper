@@ -397,6 +397,12 @@ async fn main() -> Result<(), String> {
             .cloned()
     };
 
+    // A command-level --help must not try to authenticate or access a device.
+    if matches!(cmd.as_str(), "help" | "--help" | "-h") || flag("--help") || flag("-h") {
+        println!("{}", crate::tr!(USAGE, USAGE_EN));
+        return Ok(());
+    }
+
     match cmd.as_str() {
         "version" | "--version" | "-V" => {
             println!("altkeeper {}", env!("CARGO_PKG_VERSION"));
@@ -469,7 +475,6 @@ async fn main() -> Result<(), String> {
         "profile-restore" => {
             cmd_profile_restore(phone_addr(opt("--phone"))?, args.first().cloned()).await
         }
-        "help" | "--help" | "-h" => { println!("{}", crate::tr!(USAGE, USAGE_EN)); Ok(()) },
         _ => Err(crate::tr!(USAGE, USAGE_EN).into()),
     }
 }
