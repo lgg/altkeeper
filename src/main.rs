@@ -27,6 +27,7 @@ mod env;
 mod fsperm;
 mod phone;
 mod profile;
+mod terminal;
 mod web;
 
 use std::net::SocketAddr;
@@ -172,12 +173,10 @@ async fn cmd_login(apple_id: Option<String>) -> Result<(), String> {
         team.team_id
     );
 
-    print!(
-        "Salvare la password su questo server per i rinnovi automatici (file riservato a root)? [s/N] "
-    );
-    std::io::Write::flush(&mut std::io::stdout()).ok();
-    let mut answer = String::new();
-    std::io::stdin().read_line(&mut answer).ok();
+    let answer = terminal::prompt_line(
+        "Salvare la password su questo server per i rinnovi automatici (file riservato a root)? [s/N] ",
+    )
+    .map_err(dbg)?;
     let save = matches!(answer.trim().to_lowercase().as_str(), "s" | "si" | "sì" | "y");
 
     apple::save_account(
