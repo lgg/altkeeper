@@ -494,14 +494,14 @@ mod cli_tests {
 
     #[test]
     fn confirmation_accepts_italian_and_english_yes() {
-        for yes in ["s", "S", "si", "SÌ", "y", "Y", "yes", "YES", " yes\\r\\n"] {
+        for yes in ["s", "S", "si", "SÌ", "y", "Y", "yes", "YES", " yes\r\n"] {
             assert!(save_password_confirmed(yes), "{yes:?}");
         }
     }
 
     #[test]
     fn confirmation_never_saves_on_negative_or_missing_input() {
-        for no in ["", "\\r\\n", " ", "n", "N", "no", "NO", "unknown"] {
+        for no in ["", "\r\n", " ", "n", "N", "no", "NO", "unknown"] {
             assert!(!save_password_confirmed(no), "{no:?}");
         }
     }
