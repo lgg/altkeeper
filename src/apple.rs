@@ -362,33 +362,29 @@ pub async fn open_session(
 
     let get_2fa_code = async |params: TwoFactorCallbackParams| {
         if !INTERACTIVE.load(Ordering::SeqCst) {
-            // Senza terminale non si può chiedere il codice: il login fallirà.
-            return Ok(TwoFactorCallbackResponse::SubmitCode(String::new()));
+            // Non inviare un codice vuoto ai server Apple in esecuzione automatica.
+            return Ok(TwoFactorCallbackResponse::Abort);
         }
         if params.unknown {
-            println!("{}", crate::tr!("L'ultimo metodo 2FA non ha funzionato, prova un altro.", "The previous 2FA method did not work; try another one."));
+            println!("{}", crate::tr!(
+                "L'ultimo metodo 2FA non ha funzionato, prova un altro.",
+                "The previous 2FA method did not work; try another one."
+            ));
         } else {
-            println!(
-                "{}",
-                crate::tr!(
-                    format!("Inserisci il codice a 6 cifre inviato a {}:", if params.sms {
-                    params
-                        .numbers
-                        .iter()
-                        .find(|n| Some(n.id) == params.selected_number_id)
-                        .map(|n| n.number_with_dial_code.clone())
-                        .unwrap_or_else(|| crate::tr!("il tuo telefono", "your phone").to_string())
-                } else {
-                    crate::tr!("i tuoi dispositivi", "your devices").to_string()
-                }),
-                    format!("Enter the six-digit code sent to {}:", if params.sms {
-                    params.numbers.iter()
-                        .find(|n| Some(n.id) == params.selected_number_id)
-                        .map(|n| n.number_with_dial_code.clone())
-                        .unwrap_or_else(|| crate::tr!("il tuo telefono", "your phone").to_string())
-                    } else { "your devices".to_string() })
-                )
-            );
+            let destination = if params.sms {
+                params
+                    .numbers
+                    .iter()
+                    .find(|n| Some(n.id) == params.selected_number_id)
+                    .map(|n| n.number_with_dial_code.clone())
+                    .unwrap_or_else(|| crate::tr!("il tuo telefono", "your phone").to_string())
+            } else {
+                crate::tr!("i tuoi dispositivi", "your devices").to_string()
+            };
+            println!("{}", crate::tr!(
+                format!("Inserisci il codice a 6 cifre inviato a {destination}:"),
+                format!("Enter the six-digit code sent to {destination}:")
+            ));
         }
         if params.unknown {
             println!("{}", crate::tr!(
