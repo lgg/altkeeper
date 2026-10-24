@@ -273,7 +273,11 @@ machine yet**: if something breaks, please open an issue.
    comes with iTunes, is fine), see "If something goes wrong". Stop with Ctrl-C.
 
 4. **Sign in and automatic renewal.** `.\altkeeper.exe login you@example.com` works as on the
-   other systems. `account.json`, `state\` and `profili-salvati\` are restricted to your Windows
+   other systems. In PowerShell and cmd.exe, type the six-digit 2FA code and press Enter;
+   the `d`, `r`, and `p<id>` options also work. Interactive prompts are read directly
+   from the Windows console, so switching from PowerShell to cmd.exe is unnecessary.
+   Run `login` in an interactive console rather than a background task.
+   `account.json`, `state\` and `profili-salvati\` are restricted to your Windows
    user (the equivalent of `chmod 600/700`). For the nightly renewal use the Task Scheduler with
    `renew.ps1` instead of cron:
 
