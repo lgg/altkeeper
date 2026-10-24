@@ -10,9 +10,12 @@ use std::io::{self, BufRead, Write};
 
 /// Mostra una domanda e legge una singola risposta (senza newline).
 pub fn prompt_line(prompt: &str) -> io::Result<String> {
-    let mut out = io::stdout().lock();
-    out.write_all(prompt.as_bytes())?;
-    out.flush()?;
+    {
+        // Release stdout before blocking for input. Other tasks may need to log.
+        let mut out = io::stdout().lock();
+        out.write_all(prompt.as_bytes())?;
+        out.flush()?;
+    }
     read_console_line()
 }
 
