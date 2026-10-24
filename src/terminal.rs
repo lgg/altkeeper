@@ -33,7 +33,7 @@ fn read_line_from(mut reader: impl BufRead) -> io::Result<String> {
     if reader.read_line(&mut line)? == 0 {
         return Err(io::Error::new(
             io::ErrorKind::UnexpectedEof,
-            "nessun input disponibile dal terminale",
+            crate::tr!("nessun input disponibile dal terminale", "no terminal input available"),
         ));
     }
     Ok(line.trim().to_owned())
