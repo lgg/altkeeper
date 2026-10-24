@@ -12,13 +12,52 @@
   `altserver` also stops on console close / shutdown, not only Ctrl-C. New
   `examples/renew.ps1` (the Windows counterpart of `renew.sh`, with the same ntfy notifications)
   and `.gitattributes` so the shell scripts keep LF endings in a Windows checkout. See the
-  README, section "Windows". **Not yet built or run on a real Windows machine**: please report
-  anything that breaks.
+  README, section "Windows". **Confirmed on a real Windows 10 machine:**
+  `cargo test --locked` (63 passed), `cargo build --release --locked`, English `--help`
+  and interactive PowerShell Apple ID / 2FA login. Windows 11 and complete AltServer /
+  unattended-renewal workflows still need end-to-end testing.
 - **Works from outside your home network.** `--dns-domain` publishes the AltServer service as
   ordinary DNS records (unicast DNS-SD), so AltStore discovers it through a VPN. iOS never sends
   Bonjour multicast over a VPN interface, but it does send plain DNS queries, and AltStore browses
   the device's search domains. Includes a small built-in DNS responder (UDP, answers only for its
   own names); put it behind the resolver you already run. See the README for the full setup.
+
+### Fixed
+- **Windows PowerShell Apple ID 2FA input.** Read directly from the attached Windows console
+  (`CONIN# Changelog
+
+## Unreleased
+
+### Added
+- **USB when the iPhone is plugged into the machine running AltKeeper.** Every connection (check, renew, sign and install, AltServer) first looks for an iPhone on USB through the local `usbmuxd` (or the one in `USBMUXD_SOCKET_ADDRESS`) and talks to it through the CoreDeviceProxy tunnel; if there is none, or it fails, it falls back to Wi-Fi as before. Much faster for installing IPAs. Needs the phone to already trust the computer (the usual "Trust" prompt), not the remote pairing. `--phone <ip:port>` forces Wi-Fi; `ALTKEEPER_NO_USB=1` turns USB off. In Docker the usbmuxd socket must be mounted into the container.
+- `ALTKEEPER_REVOKE_CERTS=1`: when installing an IPA from the web page fails with Apple error 7460 (the Apple ID already has a development certificate, e.g. from AltStore/SideStore), AltKeeper can revoke it and create its own. Off by default; without it you now get a clear explanation instead of a generic error.
+- **Windows support (native, no Docker).** `cargo build --release` on Windows 10/11 produces
+  `altkeeper.exe`. Everything that was Unix-only is now portable: private files get an `icacls`
+  ACL instead of `chmod 600`/`700`, random numbers come from the OS through the `rustls` provider
+  (no more `/dev/urandom`), the local time in the web page's log comes from PowerShell, and
+  `altserver` also stops on console close / shutdown, not only Ctrl-C. New
+  `examples/renew.ps1` (the Windows counterpart of `renew.sh`, with the same ntfy notifications)
+  and `.gitattributes` so the shell scripts keep LF endings in a Windows checkout. See the
+  README, section "Windows". **Confirmed on a real Windows 10 machine:**
+  `cargo test --locked` (63 passed), `cargo build --release --locked`, English `--help`
+  and interactive PowerShell Apple ID / 2FA login. Windows 11 and complete AltServer /
+  unattended-renewal workflows still need end-to-end testing.
+- **Works from outside your home network.** `--dns-domain` publishes the AltServer service as
+  ordinary DNS records (unicast DNS-SD), so AltStore discovers it through a VPN. iOS never sends
+  Bonjour multicast over a VPN interface, but it does send plain DNS queries, and AltStore browses
+  the device's search domains. Includes a small built-in DNS responder (UDP, answers only for its
+  own names); put it behind the resolver you already run. See the README for the full setup.
+
+) rather than native-process standard input, which can be unavailable in PowerShell.
+  Handle EOF instead of submitting an empty verification code; validate six-digit codes,
+  leading zeroes, device/SMS choices, and use the same mechanism for team selection and
+  the password-save prompt.
+
+### CLI localization
+- **English/Italian CLI** with `ALTKEEPER_LANG=en` or `ALTKEEPER_LANG=it`, default Italian;
+  regional variants and `ALTREFRESH_LANG` alias supported. Localize CLI prompts, login/2FA,
+  errors, server logs and `--help` without modifying protocol responses, JSON or the web UI.
+- Added Windows/Linux locale smoke checks, Rust tests and manual Windows 2FA test guidance.
 
 ### Documentation
 - "If something goes wrong" now covers the anisette error `not provisioned for this server
