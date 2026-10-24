@@ -1,7 +1,6 @@
 //! Login Apple ID (anisette e 2FA), chiamate ai servizi sviluppatori e firma IPA.
 //! Il rinnovo scarica profili; la firma può registrare il dispositivo e creare certificati.
 
-use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -33,6 +32,23 @@ static INTERACTIVE: AtomicBool = AtomicBool::new(false);
 
 pub fn set_interactive(on: bool) {
     INTERACTIVE.store(on, Ordering::SeqCst);
+}
+
+/// Interpreta il codice 2FA e i comandi di selezione senza inviare tentativi
+/// malformati ad Apple. Un codice può iniziare con zero.
+fn parse_2fa_input(input: &str, unknown: bool) -> Option<TwoFactorCallbackResponse> {
+    let input = input.trim();
+    match input {
+        "d" => Some(TwoFactorCallbackResponse::SendToDevices),
+        "r" if !unknown => Some(TwoFactorCallbackResponse::ResendCode),
+        _ if input.len() == 6 && input.bytes().all(|b| b.is_ascii_digit()) => {
+            Some(TwoFactorCallbackResponse::SubmitCode(input.to_owned()))
+        }
+        _ => input
+            .strip_prefix('p')
+            .and_then(|id| id.parse::<u32>().ok())
+            .map(TwoFactorCallbackResponse::SendSms),
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -219,8 +235,40 @@ async fn anisette_for_altstore_once(dir: &Path) -> Result<serde_json::Value, Str
 
 #[cfg(test)]
 mod tests {
-    use super::{anisette_url, is_max_certs_error, iso8601_utc, max_certs_behavior, needs_reprovision};
-    use isideload::sideload::builder::MaxCertsBehavior;
+    use super::{anisette_url, is_max_certs_error, iso8601_utc, max_certs_behavior, needs_reprovision, parse_2fa_input};
+    use isideload::{
+        auth::apple_account::TwoFactorCallbackResponse,
+        sideload::builder::MaxCertsBehavior,
+    };
+
+    #[test]
+    fn accetta_codici_2fa_e_zero_iniziale() {
+        assert!(matches!(
+            parse_2fa_input(" 012345\r\n", false),
+            Some(TwoFactorCallbackResponse::SubmitCode(code)) if code == "012345"
+        ));
+        assert!(matches!(
+            parse_2fa_input("999999", true),
+            Some(TwoFactorCallbackResponse::SubmitCode(code)) if code == "999999"
+        ));
+    }
+
+    #[test]
+    fn riconosce_opzioni_2fa() {
+        assert!(matches!(parse_2fa_input("d", false), Some(TwoFactorCallbackResponse::SendToDevices)));
+        assert!(matches!(parse_2fa_input("r", false), Some(TwoFactorCallbackResponse::ResendCode)));
+        assert!(matches!(parse_2fa_input("p1", false), Some(TwoFactorCallbackResponse::SendSms(1))));
+        assert!(matches!(parse_2fa_input("p42", true), Some(TwoFactorCallbackResponse::SendSms(42))));
+    }
+
+    #[test]
+    fn scarta_input_2fa_non_valido_senza_contattare_apple() {
+        for invalid in ["", " ", "12345", "1234567", "12 456", "abcdef", "p", "pabc", "R"] {
+            assert!(parse_2fa_input(invalid, false).is_none(), "{invalid:?}");
+        }
+        assert!(parse_2fa_input("r", true).is_none());
+    }
+
 
     #[test]
     fn riconosce_la_richiesta_di_riprovisioning() {
@@ -343,20 +391,22 @@ pub async fn open_session(
             println!("  ID {}: {}", n.id, n.number_with_dial_code);
         }
 
-        let mut code = String::new();
-        let _ = std::io::stdin().read_line(&mut code);
-        let code = code.trim();
+        loop {
+            // Non usare stdin().read_line(): in PowerShell lo stdin del processo
+            // può essere una pipe a EOF nonostante la console funzioni.
+            let code = match crate::terminal::prompt_line("Codice 2FA o comando: ") {
+                Ok(code) => code,
+                Err(e) => {
+                    eprintln!("Impossibile leggere il codice 2FA dal terminale: {e}");
+                    return Ok(TwoFactorCallbackResponse::Abort);
+                }
+            };
 
-        if let Some(id) = code.strip_prefix('p').and_then(|s| s.parse::<u32>().ok()) {
-            return Ok(TwoFactorCallbackResponse::SendSms(id));
+            if let Some(response) = parse_2fa_input(&code, params.unknown) {
+                return Ok(response);
+            }
+            println!("Inserisci un codice di 6 cifre valido oppure d, r o p<id>.");
         }
-        if code == "d" {
-            return Ok(TwoFactorCallbackResponse::SendToDevices);
-        }
-        if code == "r" && !params.unknown {
-            return Ok(TwoFactorCallbackResponse::ResendCode);
-        }
-        Ok(TwoFactorCallbackResponse::SubmitCode(code.to_string()))
     };
 
     let mut account = AppleAccount::builder(apple_id)
@@ -398,10 +448,7 @@ pub async fn pick_team(
             t.team_id
         );
     }
-    print!("Scegli il numero: ");
-    let _ = std::io::stdout().flush();
-    let mut s = String::new();
-    let _ = std::io::stdin().read_line(&mut s);
+    let s = crate::terminal::prompt_line("Scegli il numero: ").map_err(dbg)?;
     let n: usize = s.trim().parse().map_err(|_| "scelta non valida".to_string())?;
     teams
         .into_iter()
