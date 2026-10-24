@@ -186,7 +186,7 @@ Leave it running (as a service or in Docker). On the iPhone, in AltStore, open *
 ./altkeeper login your.apple.id@example.com
 ```
 
-It asks for your password (**it is shown on screen while you type**) and the 6-digit 2FA code from
+It asks for your password (**input is hidden by the terminal**) and the 6-digit 2FA code from
 your other devices. Answer `s` when it asks to save the password: that is what lets the renewal run
 without you. It is stored **in clear text** in `account.json` (mode 600). Sign in once; if Apple
 answers with errors, wait before trying again instead of repeating it.
