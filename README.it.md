@@ -34,6 +34,39 @@ C'è anche una piccola **pagina web** per vedere lo stato delle app e rinnovarle
 > AltServer su un server per un periodo lungo, né l'installazione di un IPA caricato dalla pagina web
 > con Apple e un iPhone reale.
 
+## Lingua della CLI (inglese / italiano)
+
+La CLI, inclusi i messaggi di errore, le richieste interattive e i log del server, usa
+l'italiano per impostazione predefinita per compatibilità. Per usare l'inglese, imposta
+`ALTKEEPER_LANG=en`; per l'italiano, `ALTKEEPER_LANG=it`. Funzionano anche `en-US`,
+`en_GB`, `it-IT` (senza distinzione maiuscole/minuscole). Lingue sconosciute
+ricadono sull'italiano. Se `ALTKEEPER_LANG` manca, funziona anche
+`ALTREFRESH_LANG`. Questo cambia solo il testo visibile della CLI, non il
+protocollo AltStore, i dati JSON o la lingua della pagina web.
+
+PowerShell:
+
+```powershell
+$env:ALTKEEPER_LANG = "en"
+.\target\release\altkeeper.exe login "you@example.com"
+```
+
+Prompt dei comandi (cmd.exe):
+
+```cmd
+set ALTKEEPER_LANG=en
+target\release\altkeeper.exe phone
+```
+
+Linux/macOS:
+
+```sh
+ALTKEEPER_LANG=en ./altkeeper phone
+```
+
+In Docker Compose si può aggiungere `ALTKEEPER_LANG: en` nella sezione
+`environment:` del servizio.
+
 ## Cosa fa e cosa non fa
 
 - Rinnova i profili di provisioning delle tue app (e, in modalità AltServer, installa le app che
