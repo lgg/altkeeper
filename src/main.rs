@@ -137,12 +137,11 @@ async fn phone_profiles(
 }
 
 fn profile_line(p: &profile::PhoneProfile) -> String {
-    format!(
-        "{}",
-        crate::tr!(
-            format!("   {}  [{}]  scade {} ({} giorni)", p.name, p.uuid, p.expires_text(), p.days_left().map(|d| d.to_string()).unwrap_or("?".into())),
-            format!("   {}  [{}]  expires {} ({} days)", p.name, p.uuid, p.expires_text(), p.days_left().map(|d| d.to_string()).unwrap_or("?".into()))
-        )
+    let expiry = p.expires_text();
+    let days = p.days_left().map(|d| d.to_string()).unwrap_or("?".into());
+    crate::tr!(
+        format!("   {}  [{}]  scade {expiry} ({days} giorni)", p.name, p.uuid),
+        format!("   {}  [{}]  expires {expiry} ({days} days)", p.name, p.uuid),
     )
 }
 
@@ -175,10 +174,16 @@ async fn cmd_login(apple_id: Option<String>) -> Result<(), String> {
         format!("Signed in successfully. Team: {} ({})", team.name.as_deref().unwrap_or("<unnamed>"), team.team_id)
     ));
 
-    let answer = terminal::prompt_line(
-        crate::tr!("Salvare la password su questo server per i rinnovi automatici (file riservato a root)? [s/N] ", "Save the password on this server for automatic renewals (restricted file)? [y/N] "),
-    )
-    .map_err(dbg)?;
+    let answer = match terminal::prompt_line(crate::tr!(
+        "Salvare la password su questo server per i rinnovi automatici (file riservato a root)? [s/N] ",
+        "Save the password on this server for automatic renewals (restricted file)? [y/N] ",
+    )) {
+        Ok(answer) => answer,
+        // A noninteractive session may still save the account without its password.
+        // EOF must never be interpreted as approval to store credentials.
+        Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => String::new(),
+        Err(e) => return Err(dbg(e)),
+    };
     let save = matches!(answer.trim().to_lowercase().as_str(), "s" | "si" | "sì" | "y");
 
     apple::save_account(
