@@ -190,7 +190,7 @@ Lascialo acceso (come servizio o in Docker). Sull'iPhone, in AltStore, apri **My
 ./altkeeper login tuo.apple.id@example.com
 ```
 
-Chiede la password (**si vede sullo schermo mentre scrivi**) e il codice 2FA a 6 cifre che arriva
+Chiede la password (**il terminale nasconde ciò che digiti**) e il codice 2FA a 6 cifre che arriva
 agli altri tuoi dispositivi. Rispondi `s` alla domanda sul salvare la password: è quello che permette
 al rinnovo di girare senza di te. Viene salvata **in chiaro** in `account.json` (permessi 600).
 Accedi una volta sola; se Apple risponde con errori, aspetta prima di riprovare invece di ripetere.
