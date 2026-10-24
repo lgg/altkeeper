@@ -280,7 +280,11 @@ compilata né provata su un Windows vero**: se qualcosa non funziona, apri una s
    che arriva con iTunes, va bene), guarda "Se qualcosa va storto". Si ferma con Ctrl-C.
 
 4. **Accesso e rinnovo automatico.** `.\altkeeper.exe login tu@esempio.it` funziona come sugli altri
-   sistemi. `account.json`, `state\` e `profili-salvati\` restano riservati al tuo utente Windows
+   sistemi. In PowerShell e cmd.exe inserisci il codice 2FA di sei cifre e premi Invio;
+   funzionano anche i comandi `d`, `r` e `p<id>`. AltKeeper legge le risposte
+   direttamente dalla console di Windows: non è necessario passare a cmd.exe.
+   Avvia `login` in una console interattiva, non come attività in background.
+   `account.json`, `state\` e `profili-salvati\` restano riservati al tuo utente Windows
    (l'equivalente di `chmod 600/700`). Per il rinnovo serale usa l'Utilità di pianificazione con
    `renew.ps1` al posto di cron:
 
